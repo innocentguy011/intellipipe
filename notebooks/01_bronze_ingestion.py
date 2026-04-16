@@ -2,7 +2,7 @@ import dlt
 from pyspark.sql.functions import current_timestamp
 
 # Define the source path - matching the output from 00_generate_data.py
-SOURCE_DIR = "/mnt/raw/orders"
+SOURCE_DIR = "dbfs:/FileStore/intellipipe/raw/orders/"
 
 @dlt.table(
     name="raw_orders",

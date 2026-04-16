@@ -20,7 +20,7 @@ spark = SparkSession.builder.appName("IntelliPipe-DataGen").getOrCreate()
 # Configuration
 NUM_RECORDS = 5000000
 DAYS_OF_HISTORY = 90
-OUTPUT_DIR = "/mnt/raw/orders/"
+OUTPUT_DIR = "dbfs:/FileStore/intellipipe/raw/orders/"
 
 print(f"Generating {NUM_RECORDS} synthetic records spanning {DAYS_OF_HISTORY} days...")
 
