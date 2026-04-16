@@ -1,3 +1,7 @@
+# Databricks notebook source
+# CHANGES MADE: This table will be published to the 'intellipipe' catalog 
+#              as configured in your DLT Pipeline settings.
+# ────────────────────────────────────────────────────────
 import dlt
 from pyspark.sql.functions import col, expr
 import sys

@@ -8,7 +8,7 @@
 ## 🏗️ Architecture
 
 ```
-Raw JSON ──► Bronze DLT ──► Silver DLT (UDFs) ──► Gold DLT ──► Genie AI
+Raw JSON (Volume) ──► Bronze DLT ──► Silver DLT (UDFs) ──► Gold DLT ──► Genie AI
                                                         │
                                                ┌────────▼────────┐
                                                │   ML Model      │
@@ -31,8 +31,8 @@ Raw JSON ──► Bronze DLT ──► Silver DLT (UDFs) ──► Gold DLT ─
 ```
 intellipipe/
 ├── notebooks/
-│   ├── 00_generate_data.py       # Synthetic 5M row data generation
-│   ├── 01_bronze_ingestion.py    # DLT Auto Loader → Bronze
+│   ├── 00_generate_data.py       # Outputs to /Volumes/intellipipe/default/intellipipe_volume/raw/
+│   ├── 01_bronze_ingestion.py    # Reads from /Volumes/intellipipe/default/intellipipe_volume/raw/
 │   ├── 02_silver_cleansing.py    # DLT Cleansing + UDFs → Silver
 │   ├── 03_gold_aggregation.py    # DLT Aggregation → Gold
 │   ├── 04_ml_training.py         # MLflow model training + registration
@@ -70,7 +70,7 @@ Workspace → Create → Git folder → paste this repo URL
 
 ### Step 2 — Run notebooks in order
 ```
-00_generate_data     → creates 5M rows of synthetic data in /mnt/raw/orders/
+00_generate_data     → creates 5M rows of synthetic data in dbfs:/FileStore/intellipipe/raw/orders/
 01_bronze_ingestion  → create DLT pipeline pointing to this notebook
 02_silver_cleansing  → add to same DLT pipeline (runs after Bronze)
 03_gold_aggregation  → add to same DLT pipeline (runs after Silver)

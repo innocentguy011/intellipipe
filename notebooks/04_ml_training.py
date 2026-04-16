@@ -9,6 +9,7 @@ import os
 import mlflow
 import pandas as pd
 from mlflow.models.signature import infer_signature
+import numpy as np
 
 # Add repo root to path to import our custom mllibs
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -17,13 +18,19 @@ from ml.feature_engineering import create_features
 from ml.train_model import train_volume_predictor, train_anomaly_detector
 from ml.evaluate_model import evaluate_predictions, simulate_anomaly_f1
 
+# ────────────────────────────────────────────────────────
+# 0. Configuration
+# CHANGES MADE: Updated to use your custom catalog 'intellipipe'
+CATALOG_NAME = "intellipipe"  
+# ────────────────────────────────────────────────────────
+
 # 1. Load Data from Gold Layer
-# In a real run, this reads from unity catalog: spark.table("catalog.gold.hourly_order_metrics")
 try:
-    df_spark = spark.table("catalog.gold.hourly_order_metrics")
+    # We read from the Gold layer tables inside your specified catalog
+    df_spark = spark.table(f"{CATALOG_NAME}.gold.hourly_order_metrics")
     df_pandas = df_spark.toPandas()
 except Exception as e:
-    print("Warning: Could not read from Gold table. Proceeding with dummy data for local testing.")
+    print(f"Warning: Could not read from {CATALOG_NAME}.gold.hourly_order_metrics. Proceeding with dummy data for local testing.")
     # Local fallback for testing the script's logic without Databricks
     date_rng = pd.date_range(start='1/1/2025', end='1/31/2025', freq='h')
     df_pandas = pd.DataFrame(date_rng, columns=['hour_start'])
@@ -48,8 +55,6 @@ X_train, y_train = train_df[feature_cols], train_df[target_col]
 X_test, y_test = test_df[feature_cols], test_df[target_col]
 
 # 4. MLflow Experiment Tracking
-# We define a custom pyfunc model that bundles both Regressor and Isolation forest
-# so we can serve them behind a single endpoint.
 class AnomalyPredictorModel(mlflow.pyfunc.PythonModel):
     def load_context(self, context):
         import joblib
@@ -58,8 +63,8 @@ class AnomalyPredictorModel(mlflow.pyfunc.PythonModel):
         
     def predict(self, context, model_input):
         vol_pred = self.vol_model.predict(model_input)
-        anom_score = self.anom_model.score_samples(model_input) # Score representing anomaly probability
-        anom_label = self.anom_model.predict(model_input) # -1 is anomaly, 1 is normal
+        anom_score = self.anom_model.score_samples(model_input)
+        anom_label = self.anom_model.predict(model_input)
         
         return pd.DataFrame({
             "expected_volume": vol_pred,
@@ -68,7 +73,7 @@ class AnomalyPredictorModel(mlflow.pyfunc.PythonModel):
         })
 
 print("Starting MLflow Run...")
-mlflow.set_experiment("/Shared/IntelliPipe_ML")
+mlflow.set_experiment(f"/Shared/IntelliPipe_ML")
 
 with mlflow.start_run(run_name="volume_anomaly_predictor") as run:
     # Train Models
@@ -82,7 +87,6 @@ with mlflow.start_run(run_name="volume_anomaly_predictor") as run:
     
     print(f"Test RMSE: {metrics['rmse']:.2f}")
     
-    # Save scikit-learn models natively so our PyFunc can load them
     import joblib
     joblib.dump(vol_model, "vol_model.pkl")
     joblib.dump(anom_model, "anom_model.pkl")
@@ -92,16 +96,16 @@ with mlflow.start_run(run_name="volume_anomaly_predictor") as run:
         "anom_model": "anom_model.pkl"
     }
 
-    # Infer MLflow signature
     signature = infer_signature(X_test, pd.DataFrame({"expected_volume": [1.0], "anomaly_score": [0.5], "is_anomaly": [False]}))
 
-    # Log Custom Model
+    # Log Custom Model to Unity Catalog
     mlflow.pyfunc.log_model(
         artifact_path="model",
         python_model=AnomalyPredictorModel(),
         artifacts=artifacts,
         signature=signature,
-        registered_model_name="intellipipe.ml.volume_predictor"
+        # Registred in the 'ml' schema of your catalog
+        registered_model_name=f"{CATALOG_NAME}.ml.volume_predictor"
     )
     
-print("Phase 4 Complete: Model Trained and Registered to Unity Catalog!")
+print(f"Phase 4 Complete: Model Trained and Registered to {CATALOG_NAME}.ml.volume_predictor")
